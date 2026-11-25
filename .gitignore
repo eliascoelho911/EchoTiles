@@ -33,7 +33,11 @@ migrate_working_dir/
 /build/
 /coverage/
 /linux/
-/test/
+/.runtime/
+/.venv/
+**/__pycache__/
+**/.pytest_cache/
+/dist/
 
 # Symbolication related
 app.*.symbols
