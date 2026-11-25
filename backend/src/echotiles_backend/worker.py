@@ -19,6 +19,10 @@ from .models import BackendError, canonical_source, error_value
 from .storage import Storage, new_id
 
 
+class _StopRequested(Exception):
+    """Parada do serviço: mantém o estado ativo para a recuperação no reinício."""
+
+
 def stop_process_tree(pid):
     """Encerra somente o job e seus descendentes, mesmo com sessões próprias."""
     descendants = {}
@@ -131,6 +135,8 @@ class Worker:
             raise BackendError("disk_quota")
 
     def _download(self, ref, stage, item_id):
+        if self.stopping:
+            raise _StopRequested
         self._check_quota()
         # spawn evita herdar locks de bibliotecas de análise ou de threads da API/testes.
         context = multiprocessing.get_context("spawn")
@@ -145,11 +151,10 @@ class Worker:
         result = None
         try:
             while True:
+                if self.stopping:
+                    raise _StopRequested
                 self._check_quota()
-                if (
-                    self.stopping
-                    or time.monotonic() - started > self.settings.download_timeout_seconds
-                ):
+                if time.monotonic() - started > self.settings.download_timeout_seconds:
                     raise BackendError("download_failed", retryable=True)
                 if receiver.poll(0.05):
                     try:
@@ -165,6 +170,8 @@ class Worker:
                         break
                 elif not process.is_alive():
                     break
+            if self.stopping:
+                raise _StopRequested
             if result is None:
                 raise BackendError("download_failed", retryable=True)
             self._check_quota()
@@ -250,6 +257,8 @@ class Worker:
             # Só anuncia ready depois que os dois arquivos estão publicados.
             self.storage.publish(item["id"], track, track_id)
             published = None
+        except _StopRequested:
+            raise
         except Exception as exc:  # noqa: BLE001 - uma falha isolada não descarta a playlist.
             if isinstance(exc, BackendError):
                 error = exc.error
@@ -278,6 +287,9 @@ class Worker:
                     break
                 self._process_item(item)
             self.storage.finish_import(job["id"])
+        except _StopRequested:
+            # Não conclua a importação: recover() recolocará somente o trabalho ativo na fila.
+            pass
         except Exception as exc:  # noqa: BLE001 - fronteira do job com erro público sanitizado.
             error = (
                 error_value("disk_quota")

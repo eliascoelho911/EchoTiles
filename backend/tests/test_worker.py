@@ -167,6 +167,101 @@ def test_restart_recovers_interrupted_items_in_order(tmp_path, playback):
     assert all(item["status"] == "ready" for item in result["items"])
 
 
+@pytest.mark.parametrize("ready_first", [False, True], ids=["video", "playlist_with_ready_item"])
+def test_stop_during_download_recovers_without_losing_ready_items(tmp_path, playback, ready_first):
+    settings = Settings(data_dir=tmp_path / "data")
+    pid_file = tmp_path / "stopped-download.pid"
+    refs = [VideoReference("BaW_jenozKc", URL, "Primeira")]
+    with TestClient(create_app(settings)) as client:
+        ready_track = None
+        if ready_first:
+            # A primeira entrada da playlist já está íntegra no catálogo.
+            client.post("/api/imports", json={"url": URL})
+            Worker(settings, downloader=FakeDownloader(playback)).run_once()
+            ready_track = client.get("/api/tracks").json()["tracks"][0]
+            refs.append(VideoReference("jNQXAC9IVRw", "https://youtu.be/jNQXAC9IVRw", "Segunda"))
+        job = client.post("/api/imports", json={"url": PLAYLIST if ready_first else URL}).json()
+        worker = Worker(
+            settings,
+            downloader=FakeDownloader(playback, refs, delay=10, detached_pid_file=pid_file),
+        )
+        thread = threading.Thread(target=worker.run_once)
+        thread.start()
+        try:
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline:
+                active = client.get(f"/api/imports/{job['id']}").json()
+                if (
+                    active["items"]
+                    and active["items"][-1]["status"] == "downloading"
+                    and active["items"][-1]["progress"] == 0.2
+                ):
+                    break
+                time.sleep(0.01)
+            else:
+                pytest.fail("O download não informou progresso antes do prazo.")
+            assert active["readyItems"] == int(ready_first)
+            worker.stopping = True  # Mesmo caminho do handler SIGTERM/SIGINT.
+            thread.join(5)
+            assert not thread.is_alive()
+            stopped = client.get(f"/api/imports/{job['id']}").json()
+            assert stopped["status"] == "running"
+            assert stopped["items"][-1]["status"] == "downloading"
+            assert stopped["items"][-1]["error"] is None
+            assert stopped["failedItems"] == 0
+            assert not list(Storage(settings.data_dir).staging.iterdir())
+            pid = int(pid_file.read_text())
+            assert (
+                not psutil.pid_exists(pid) or psutil.Process(pid).status() == psutil.STATUS_ZOMBIE
+            )
+            if ready_first:
+                assert stopped["items"][0]["trackId"] == ready_track["id"]
+                assert client.get(f"/api/tracks/{ready_track['id']}").json() == ready_track
+
+            replacement = Worker(settings, downloader=FakeDownloader(playback, refs))
+            replacement.storage.recover()
+            recovered = client.get(f"/api/imports/{job['id']}").json()
+            assert recovered["status"] == "queued"
+            assert recovered["items"][-1]["status"] == "queued"
+            assert recovered["items"][-1]["progress"] is None
+            assert recovered["readyItems"] == int(ready_first)
+            assert replacement.run_once()
+            completed = client.get(f"/api/imports/{job['id']}").json()
+            assert completed["status"] == "completed"
+            assert completed["readyItems"] == len(refs)
+            assert completed["failedItems"] == 0
+            if ready_first:
+                assert completed["items"][0]["trackId"] == ready_track["id"]
+                assert client.get(f"/api/tracks/{ready_track['id']}").json() == ready_track
+        finally:
+            worker.stopping = True
+            thread.join(5)
+            if pid_file.exists():
+                try:
+                    process = psutil.Process(int(pid_file.read_text()))
+                    process.kill()
+                    psutil.wait_procs([process], timeout=1)
+                except psutil.NoSuchProcess:
+                    pass
+
+
+def test_download_timeout_stays_failed_after_recovery(tmp_path, playback):
+    settings = Settings(data_dir=tmp_path / "data", download_timeout_seconds=0.5)
+    with TestClient(create_app(settings)) as client:
+        job = client.post("/api/imports", json={"url": URL}).json()
+        Worker(settings, downloader=FakeDownloader(playback, delay=10)).run_once()
+        failed = client.get(f"/api/imports/{job['id']}").json()
+        assert failed["status"] == "failed"
+        assert failed["items"][0]["status"] == "failed"
+        assert failed["items"][0]["error"]["code"] == "download_failed"
+        assert failed["items"][0]["error"]["retryable"] is True
+        assert not list(Storage(settings.data_dir).staging.iterdir())
+        replacement = Worker(settings, downloader=FakeDownloader(playback))
+        replacement.storage.recover()
+        assert not replacement.run_once()
+        assert client.get(f"/api/imports/{job['id']}").json() == failed
+
+
 def test_corrupt_cache_is_not_reused(tmp_path, playback):
     settings = Settings(data_dir=tmp_path / "data")
     with TestClient(create_app(settings)) as client:
