@@ -221,11 +221,11 @@ def test_harness_keeps_failed_first_attempt_in_recovery_denominator(tmp_path, au
     wrapper.write_text('#!/bin/sh\nexec ' + shlex.join(base) + ' "$@"\n')
     wrapper.chmod(0o755)
     urls = tmp_path / 'urls.json'
-    urls.write_text(json.dumps([VIDEO_URL]))
+    urls.write_text(json.dumps([VIDEO_URL, f'https://youtu.be/{VIDEO_ID}']))
     output = tmp_path / 'validation'
     harness = Path(__file__).parents[1] / 'tools' / 'validate_youtube_downloads.py'
     result = subprocess.run([sys.executable, str(harness), '--urls-file', str(urls), '--output-dir', str(output),
-                             '--yt-dlp', str(wrapper), '--attempts', '2', '--gap-seconds', '0', '--sleep-min', '0', '--sleep-max', '0'],
+                             '--yt-dlp', str(wrapper), '--attempts', '2', '--gap-seconds', '0', '--sleep-min', '0', '--sleep-max', '0', '--reuse-cache'],
                             env={**os.environ, 'PYTHONPATH': str(Path(__file__).parents[1] / 'src')}, capture_output=True, text=True, timeout=30, check=False)
     # --version is also executed, so do not count it as the first metadata attempt.
     assert result.returncode == 0, result.stderr
@@ -233,4 +233,6 @@ def test_harness_keeps_failed_first_attempt_in_recovery_denominator(tmp_path, au
     assert ledger['totals']['eligibleVideos'] == 1
     assert ledger['totals']['firstAttemptSuccesses'] == 0
     assert ledger['totals']['afterRecoverySuccesses'] == 1
-    assert len(ledger['attempts']) == 2
+    assert ledger['totals']['freshAttempts'] == 2
+    assert ledger['totals']['cacheHits'] == 1
+    assert len(ledger['attempts']) == 3

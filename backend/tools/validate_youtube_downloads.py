@@ -82,9 +82,16 @@ def totals(attempts: list[dict]) -> dict:
     for attempt in attempts:
         if attempt.get('transfer') == 'cache':
             continue
-        # The public canonical URL remains the same when a first metadata
-        # attempt fails before yt-dlp returns the ID and a recovery succeeds.
-        videos.setdefault(attempt['sourceUrl'], []).append(attempt)
+        # Recover the ID from a public URL even when metadata failed. This
+        # keeps aliases and failed first attempts in the same denominator.
+        video_id = attempt.get('videoId')
+        if not video_id:
+            parts = urlsplit(attempt['sourceUrl'])
+            video_id = parse_qs(parts.query).get('v', [None])[0]
+            if not video_id and (parts.hostname in {'youtu.be', 'www.youtu.be'} or parts.path.startswith(('/shorts/', '/embed/', '/live/'))):
+                video_id = parts.path.rstrip('/').rsplit('/', 1)[-1]
+        key = video_id if isinstance(video_id, str) and re.fullmatch(r'[A-Za-z0-9_-]{11}', video_id) else attempt['sourceUrl']
+        videos.setdefault(key, []).append(attempt)
     eligible = [rows for rows in videos.values() if rows[0].get('eligible', True)]
     return {
         'distinctCandidates': len(videos), 'eligibleVideos': len(eligible),
@@ -186,7 +193,7 @@ def main() -> int:
             if index or attempt_number:
                 time.sleep(args.gap_seconds)
             started = time.monotonic()
-            identity = public_url(url) if url else '[item indisponível]'
+            identity = public_url(url) if url else f'[item indisponível {index}]'
             row = {'runId': run_id, 'sourceUrl': identity, 'origin': origin, 'startedAt': now(),
                    'transfer': 'fresh', 'success': False, 'eligible': True}
             try:
