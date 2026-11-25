@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+
 import '../l10n/app_localizations.dart';
 import '../models/app_theme.dart';
 import '../services/haptics.dart';
 import '../services/storage_service.dart';
+import 'server_settings_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final AppThemeData appTheme;
@@ -81,6 +83,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           children: [
+            Card(
+              color: theme.cardBg,
+              margin: const EdgeInsets.only(bottom: 24),
+              child: ListTile(
+                leading: const Icon(Icons.dns_rounded),
+                title: const Text('Servidor de músicas'),
+                subtitle: Text(
+                  StorageService.getServerUrl().isEmpty
+                      ? 'Configurar importação do YouTube'
+                      : StorageService.getServerUrl(),
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => ServerSettingsScreen(appTheme: theme),
+                    ),
+                  );
+                  if (mounted) setState(() {});
+                },
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 8),
               child: Text(
@@ -101,7 +125,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               clipBehavior: Clip.antiAlias,
               child: SwitchListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 4,
+                ),
                 title: Text(
                   l10n.hapticFeedback,
                   style: TextStyle(
@@ -145,7 +172,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   return Column(
                     children: [
                       ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 2,
+                        ),
                         title: Text(
                           _themeName(t.id, l10n),
                           style: TextStyle(
@@ -155,7 +185,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                         ),
                         trailing: isSelected
-                            ? Icon(Icons.check_circle_rounded, color: theme.switchActiveColor, size: 24)
+                            ? Icon(
+                                Icons.check_circle_rounded,
+                                color: theme.switchActiveColor,
+                                size: 24,
+                              )
                             : null,
                         onTap: () {
                           Haptics.select();
@@ -167,7 +201,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         },
                       ),
                       if (!isLast)
-                        Divider(height: 1, indent: 20, endIndent: 20, color: theme.border.withValues(alpha: 0.3)),
+                        Divider(
+                          height: 1,
+                          indent: 20,
+                          endIndent: 20,
+                          color: theme.border.withValues(alpha: 0.3),
+                        ),
                     ],
                   );
                 }).toList(),
@@ -200,13 +239,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     title: l10n.systemDefault,
                     localeCode: null,
                   ),
-                  Divider(height: 1, indent: 20, endIndent: 20, color: theme.border.withValues(alpha: 0.3)),
+                  Divider(
+                    height: 1,
+                    indent: 20,
+                    endIndent: 20,
+                    color: theme.border.withValues(alpha: 0.3),
+                  ),
+                  _buildLanguageTile(
+                    theme: theme,
+                    title: 'Português',
+                    localeCode: 'pt',
+                  ),
+                  Divider(
+                    height: 1,
+                    indent: 20,
+                    endIndent: 20,
+                    color: theme.border.withValues(alpha: 0.3),
+                  ),
                   _buildLanguageTile(
                     theme: theme,
                     title: l10n.langEnglish,
                     localeCode: 'en',
                   ),
-                  Divider(height: 1, indent: 20, endIndent: 20, color: theme.border.withValues(alpha: 0.3)),
+                  Divider(
+                    height: 1,
+                    indent: 20,
+                    endIndent: 20,
+                    color: theme.border.withValues(alpha: 0.3),
+                  ),
                   _buildLanguageTile(
                     theme: theme,
                     title: l10n.langItalian,
@@ -224,7 +284,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size.fromHeight(50),
                 side: const BorderSide(color: Color(0xFFEF4444), width: 1.8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
               child: Text(
                 l10n.resetHighScores,
@@ -259,7 +321,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
       trailing: isSelected
-          ? Icon(Icons.check_circle_rounded, color: theme.switchActiveColor, size: 24)
+          ? Icon(
+              Icons.check_circle_rounded,
+              color: theme.switchActiveColor,
+              size: 24,
+            )
           : null,
       onTap: () {
         Haptics.select();
@@ -272,13 +338,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _showResetDialog(BuildContext context, AppThemeData theme, AppLocalizations l10n) {
+  void _showResetDialog(
+    BuildContext context,
+    AppThemeData theme,
+    AppLocalizations l10n,
+  ) {
     showDialog(
       context: context,
       builder: (ctx) {
         return AlertDialog(
           backgroundColor: theme.dialogBg,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
           title: Text(
             l10n.resetScoresTitle,
             style: TextStyle(
@@ -288,27 +360,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           content: Text(
             l10n.resetScoresMessage,
-            style: TextStyle(color: theme.textSecondary, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              color: theme.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: Text(
                 l10n.cancel,
-                style: TextStyle(color: theme.textMuted, fontWeight: FontWeight.w800),
+                style: TextStyle(
+                  color: theme.textMuted,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFEF4444),
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onPressed: () async {
                 await StorageService.resetHighScores();
                 if (ctx.mounted) Navigator.pop(ctx);
               },
-              child: Text(l10n.reset, style: const TextStyle(fontWeight: FontWeight.w900)),
+              child: Text(
+                l10n.reset,
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
             ),
           ],
         );

@@ -1,3 +1,5 @@
+import 'youtube_models.dart';
+
 enum GameStatus { ready, playing, paused, gameOver, victory }
 
 enum HitQuality { perfect, great, good, miss }
@@ -11,6 +13,10 @@ class SongItem {
   final int notesCount;
   final int highScore;
   final int stars;
+  final YoutubeTrack? youtubeTrack;
+  final String? serverBase;
+
+  bool get isYoutube => youtubeTrack != null;
 
   const SongItem({
     required this.id,
@@ -21,12 +27,22 @@ class SongItem {
     required this.notesCount,
     this.highScore = 0,
     this.stars = 0,
+    this.youtubeTrack,
+    this.serverBase,
   });
 
-  SongItem copyWith({
-    int? highScore,
-    int? stars,
-  }) {
+  factory SongItem.youtube(YoutubeTrack track, String server) => SongItem(
+    id: 'youtube_${track.id}',
+    title: track.title,
+    artist: track.artist,
+    assetAudio: '',
+    bpm: track.bpm ?? 120,
+    notesCount: 0,
+    youtubeTrack: track,
+    serverBase: server,
+  );
+
+  SongItem copyWith({int? highScore, int? stars}) {
     return SongItem(
       id: id,
       title: title,
@@ -36,6 +52,8 @@ class SongItem {
       notesCount: notesCount,
       highScore: highScore ?? this.highScore,
       stars: stars ?? this.stars,
+      youtubeTrack: youtubeTrack,
+      serverBase: serverBase,
     );
   }
 
@@ -49,6 +67,8 @@ class SongItem {
       'notesCount': notesCount,
       'highScore': highScore,
       'stars': stars,
+      if (youtubeTrack != null) 'youtubeTrack': youtubeTrack!.toJson(),
+      if (serverBase != null) 'serverBase': serverBase,
     };
   }
 
@@ -62,6 +82,10 @@ class SongItem {
       notesCount: (json['notesCount'] as num?)?.toInt() ?? 160,
       highScore: (json['highScore'] as num?)?.toInt() ?? 0,
       stars: (json['stars'] as num?)?.toInt() ?? 0,
+      youtubeTrack: json['youtubeTrack'] == null
+          ? null
+          : YoutubeTrack.fromJson(json['youtubeTrack'] as Map<String, dynamic>),
+      serverBase: json['serverBase'] as String?,
     );
   }
 }
