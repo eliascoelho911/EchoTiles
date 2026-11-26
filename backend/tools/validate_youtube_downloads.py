@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Real downloads, with a persistent, sanitized attempt ledger (never simulated).
+"""Downloads reais com registro persistente e sanitizado de tentativas (sem simulação).
 
-Run with PYTHONPATH=backend/src. All media and reports should be outside Git.
-The default sample is musical; source availability is checked during execution.
+Execute com PYTHONPATH=backend/src. Mídias e relatórios devem ficar fora do Git.
+A amostra padrão é musical; a disponibilidade das fontes é verificada na execução.
 """
 from __future__ import annotations
 
@@ -127,14 +127,14 @@ def cached_audio(row: dict, ffprobe: str) -> dict | None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--urls-file', type=Path, help='JSON array of URL strings, or one public URL per line')
+    parser.add_argument('--urls-file', type=Path, help='Lista JSON de URLs ou uma URL pública por linha')
     parser.add_argument('--playlist', action='append', default=[])
     parser.add_argument('--output-dir', type=Path, required=True)
     parser.add_argument('--report', type=Path)
     parser.add_argument('--label', default='default-clients')
     parser.add_argument('--python', default=sys.executable)
-    parser.add_argument('--yt-dlp', help='Optional yt-dlp executable instead of python -m yt_dlp')
-    parser.add_argument('--extra-arg', action='append', default=[], help='Explicit yt-dlp option; values are redacted in the public ledger')
+    parser.add_argument('--yt-dlp', help='Executável opcional do yt-dlp em vez de python -m yt_dlp')
+    parser.add_argument('--extra-arg', action='append', default=[], help='Opção explícita do yt-dlp; os valores são omitidos no registro público')
     parser.add_argument('--js-runtime')
     parser.add_argument('--attempts', type=int, default=1)
     parser.add_argument('--gap-seconds', type=float, default=5)
