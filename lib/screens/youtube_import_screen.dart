@@ -9,6 +9,7 @@ import '../services/import_api.dart';
 import '../services/storage_service.dart';
 import 'game_screen.dart';
 import 'server_settings_screen.dart';
+import 'track_subtitle.dart';
 
 class YoutubeImportScreen extends StatefulWidget {
   final AppThemeData appTheme;
@@ -407,7 +408,7 @@ class _YoutubeImportScreenState extends State<YoutubeImportScreen>
                     color: theme.cardBg,
                     child: ListTile(
                       title: Text(track.title),
-                      subtitle: Text(track.artist),
+                      subtitle: Text(trackSubtitle(track)),
                       trailing: const Icon(Icons.play_arrow_rounded),
                       onTap: () => _play(track),
                     ),

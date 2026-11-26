@@ -12,6 +12,7 @@ import '../services/storage_service.dart';
 import 'game_screen.dart';
 import 'how_to_play_screen.dart';
 import 'settings_screen.dart';
+import 'track_subtitle.dart';
 import 'youtube_import_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -560,7 +561,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                             ),
                                             const SizedBox(height: 2),
                                             Text(
-                                              song.artist,
+                                              song.youtubeTrack == null
+                                                  ? song.artist
+                                                  : trackSubtitle(
+                                                      song.youtubeTrack!,
+                                                    ),
                                               style: TextStyle(
                                                 fontSize: 13,
                                                 fontWeight: FontWeight.w600,
@@ -610,8 +615,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ],
                                         ),
                                       ),
-                                      if (song.id.startsWith('custom_') ||
-                                          song.isYoutube) ...[
+                                      if (song.id.startsWith('custom_') &&
+                                          !song.isYoutube) ...[
                                         IconButton(
                                           icon: Icon(
                                             Icons.delete_outline_rounded,
@@ -620,15 +625,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ),
                                           onPressed: () async {
                                             Haptics.select();
-                                            if (song.isYoutube) {
-                                              await StorageService.removeYoutubeSong(
-                                                song.id,
-                                              );
-                                            } else {
-                                              await StorageService.removeCustomSong(
-                                                song.id,
-                                              );
-                                            }
+                                            await StorageService.removeCustomSong(
+                                              song.id,
+                                            );
                                             _loadData();
                                           },
                                         ),
