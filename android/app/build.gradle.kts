@@ -1,5 +1,4 @@
 import java.util.Properties
-import java.io.FileInputStream
 
 plugins {
     id("com.android.application")
@@ -8,9 +7,23 @@ plugins {
 }
 
 val keystoreProperties = Properties()
-val keystorePropertiesFile = rootProject.file("key.properties")
-if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+val signingPropertiesPath = providers.environmentVariable("ECHOTILES_KEY_PROPERTIES")
+    .orNull?.takeIf { it.isNotBlank() }
+val keystorePropertiesFile = rootProject.file(signingPropertiesPath ?: "key.properties")
+val hasReleaseKeystore = keystorePropertiesFile.isFile
+if (signingPropertiesPath != null || keystorePropertiesFile.exists()) {
+    require(hasReleaseKeystore) { "Arquivo privado de assinatura não encontrado ou inválido." }
+    keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
+    for (propertyName in listOf("keyAlias", "keyPassword", "storeFile", "storePassword")) {
+        require(!keystoreProperties.getProperty(propertyName).isNullOrBlank()) {
+            "Configuração privada de assinatura incompleta: falta $propertyName."
+        }
+    }
+    require(file(keystoreProperties.getProperty("storeFile")).isFile) {
+        "Keystore configurada não encontrada."
+    }
+} else {
+    logger.warn("EchoTiles YouTube: release de protótipo com assinatura debug local; não usar para distribuição.")
 }
 
 android {
@@ -30,30 +43,29 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.sidhant.echotiles"
+        applicationId = "com.sidhant.echotiles.youtubeprototype"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        minSdk = 24
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
     signingConfigs {
-        create("release") {
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
-            storeFile = keystoreProperties["storeFile"]?.let { file(it) }
-            storePassword = keystoreProperties["storePassword"] as String
+        if (hasReleaseKeystore) {
+            create("release") {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+            }
         }
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.getByName(if (hasReleaseKeystore) "release" else "debug")
         }
     }
 

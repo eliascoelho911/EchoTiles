@@ -15,7 +15,11 @@ class SongCatalog {
 
   static List<SongItem> getSongs() {
     final customSongs = StorageService.getCustomSongs();
-    final allSongs = [...defaultSongs, ...customSongs];
+    final allSongs = [
+      ...defaultSongs,
+      ...customSongs,
+      ...StorageService.getYoutubeSongs(),
+    ];
     return allSongs.map((song) {
       final hs = StorageService.getHighScore(song.id);
       final st = StorageService.getStars(song.id);

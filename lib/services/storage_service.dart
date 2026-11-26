@@ -1,6 +1,9 @@
 import 'dart:convert';
+
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/game_models.dart';
+import '../models/youtube_models.dart';
 
 class StorageService {
   static const String keyTheme = 'theme_id';
@@ -9,6 +12,8 @@ class StorageService {
   static const String keyBestCombo = 'best_combo';
   static const String keyCustomSongs = 'custom_songs';
   static const String keyLocale = 'locale_code';
+  static const String keyServer = 'youtube_server';
+  static const String keyYoutubeSongs = 'youtube_songs';
 
   static late SharedPreferences _prefs;
 
@@ -88,7 +93,9 @@ class StorageService {
   static List<SongItem> getCustomSongs() {
     final raw = _prefs.getStringList(keyCustomSongs) ?? [];
     return raw
-        .map((str) => SongItem.fromJson(jsonDecode(str) as Map<String, dynamic>))
+        .map(
+          (str) => SongItem.fromJson(jsonDecode(str) as Map<String, dynamic>),
+        )
         .toList();
   }
 
@@ -97,6 +104,47 @@ class StorageService {
     current.add(song);
     final raw = current.map((s) => jsonEncode(s.toJson())).toList();
     await _prefs.setStringList(keyCustomSongs, raw);
+  }
+
+  static String getServerUrl() =>
+      _prefs.getString(keyServer) ??
+      const String.fromEnvironment('ECHOTILES_SERVER_URL');
+
+  static Future<void> setServerUrl(String value) =>
+      _prefs.setString(keyServer, value);
+
+  static List<SongItem> getYoutubeSongs() {
+    final songs = <SongItem>[];
+    for (final raw in _prefs.getStringList(keyYoutubeSongs) ?? <String>[]) {
+      try {
+        final song = SongItem.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+        if (song.isYoutube && song.serverBase != null) songs.add(song);
+      } catch (_) {
+        /* Ignore obsolete or interrupted metadata writes. */
+      }
+    }
+    return songs;
+  }
+
+  static Future<void> mergeYoutubeTracks(
+    List<YoutubeTrack> tracks,
+    String server,
+  ) async {
+    final songs = {for (final song in getYoutubeSongs()) song.id: song};
+    for (final track in tracks) {
+      final song = SongItem.youtube(track, server);
+      songs[song.id] = song;
+    }
+    final raw = songs.values.map((song) => jsonEncode(song.toJson())).toList();
+    await _prefs.setStringList(keyYoutubeSongs, raw);
+  }
+
+  static Future<void> removeYoutubeSong(String id) async {
+    final raw = getYoutubeSongs()
+        .where((s) => s.id != id)
+        .map((s) => jsonEncode(s.toJson()))
+        .toList();
+    await _prefs.setStringList(keyYoutubeSongs, raw);
   }
 
   static Future<void> removeCustomSong(String songId) async {
@@ -109,7 +157,9 @@ class StorageService {
   static Future<void> resetHighScores() async {
     final keys = _prefs.getKeys();
     for (final key in keys) {
-      if (key.startsWith('high_score_') || key.startsWith('stars_') || key == keyBestCombo) {
+      if (key.startsWith('high_score_') ||
+          key.startsWith('stars_') ||
+          key == keyBestCombo) {
         await _prefs.remove(key);
       }
     }
